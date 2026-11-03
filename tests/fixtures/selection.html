@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>AutoCopy regression fixture</title>
+    <script>
+      window.eventCounts = { blocked: 0, button: 0, input: 0 };
+      if (new URL(location.href).searchParams.has('blocked')) {
+        document.documentElement.classList.add('protected');
+        const editable = (event) => event.target instanceof Element
+          && event.target.closest('input, textarea, button, [contenteditable]');
+        for (const name of ['pointerdown', 'mousedown', 'selectstart', 'contextmenu', 'copy']) {
+          window.addEventListener(name, (event) => {
+            if (editable(event)) return;
+            window.eventCounts.blocked++;
+            event.preventDefault();
+          }, true);
+        }
+        window.addEventListener('mouseup', (event) => {
+          if (!editable(event)) getSelection().removeAllRanges();
+        }, true);
+        document.addEventListener('selectionchange', () => {
+          if (!document.activeElement.matches('input, textarea, [contenteditable]')) getSelection().removeAllRanges();
+        });
+      }
+    </script>
+    <style>
+      body { margin: 40px; font: 18px/1.6 monospace; }
+      p { width: max-content; margin: 18px 0; }
+      .protected * { user-select: none !important; }
+      input, textarea { display: block; margin: 16px 0; padding: 8px; width: 500px; font: inherit; }
+      iframe { width: 900px; height: 220px; }
+      #editor { margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <p id="text">Drag this text into the clipboard.</p>
+    <p id="formatted"><b>Formatted</b> text stays plain.</p>
+    <p id="inline" style="user-select: none !important; -webkit-user-select: none !important" onselectstart="return false">Inline protected selection.</p>
+    <input id="input" aria-label="Text input" value="Editable input text">
+    <textarea id="textarea" aria-label="Text area">Editable textarea text</textarea>
+    <input id="password" aria-label="Password" type="password" value="secret-never-copy">
+    <button id="button" onclick="eventCounts.button++">A working button</button>
+    <div id="editor" contenteditable="true">Editable content</div>
+    <div id="dynamic"></div>
+    <script>
+      document.getElementById('input').addEventListener('input', () => eventCounts.input++);
+      if (new URL(location.href).searchParams.has('frame')) {
+        const frame = document.createElement('iframe');
+        frame.id = 'frame';
+        frame.src = 'https://frame.autocopy.test/selection?blocked';
+        document.body.append(frame);
+      }
+    </script>
+  </body>
+</html>

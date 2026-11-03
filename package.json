@@ -1,0 +1,16 @@
+{
+  "name": "easycopy-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional drag-to-copy and per-site selection unlocking for Chrome.",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "icons": "node scripts/icons.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EasyCopy 설정</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="shared.js" defer></script>
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <img src="icons/48.png" width="36" height="36" alt="">
+      <div><h1>EasyCopy <span id="version"></span></h1><p>선택한 텍스트를 바로 복사합니다.</p></div>
+    </header>
+    <main>
+      <section class="site-card" aria-labelledby="site-heading">
+        <div class="site-heading"><span id="site-heading">현재 사이트</span><span id="site-state" class="badge">기본</span></div>
+        <p id="site-name" class="site-name">확인 중...</p>
+        <div class="option">
+          <label for="unlock"><strong>복사 방지 해제</strong><span id="unlock-description">이 사이트에서 드래그, 텍스트 선택과 우클릭을 허용합니다.</span></label>
+          <input type="checkbox" role="switch" id="unlock" aria-describedby="unlock-description" disabled>
+        </div>
+        <p class="site-note" id="site-note">선택한 사이트에만 적용됩니다. 기본값은 꺼짐입니다.</p>
+      </section>
+      <section class="general" aria-labelledby="general-heading">
+        <h2 id="general-heading">모든 사이트</h2>
+        <div class="option">
+          <label for="auto-copy"><strong>드래그 후 자동 복사</strong><span id="auto-description">왼쪽 버튼을 놓으면 선택한 텍스트를 복사합니다.</span></label>
+          <input type="checkbox" role="switch" id="auto-copy" aria-describedby="auto-description" disabled>
+        </div>
+        <div class="option compact">
+          <label for="show-toast"><strong>복사 알림</strong><span>마우스 옆에 짧게 표시합니다.</span></label>
+          <input type="checkbox" role="switch" id="show-toast" disabled>
+        </div>
+      </section>
+    </main>
+    <footer><span class="status-dot" aria-hidden="true"></span><p id="status" role="status">설정을 불러오는 중입니다.</p></footer>
+  </body>
+</html>

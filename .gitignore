@@ -1,0 +1,12 @@
+.*/
+!.github/
+!.gitlab/
+!.devcontainer/
+!.githooks/
+!.husky/
+!.mvn/
+!.well-known/
+node_modules/
+test-results/
+playwright-report/
+*.zip
