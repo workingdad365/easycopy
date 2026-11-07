@@ -79,6 +79,17 @@ async function drag(page, selector, { release = true } = {}) {
   if (release) await page.mouse.up();
 }
 
+async function dragInput(page, selector) {
+  const control = page.locator(selector);
+  await control.scrollIntoViewIfNeeded();
+  const rect = await control.boundingBox();
+  const y = rect.y + 15;
+  await page.mouse.move(rect.x + 10, y);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + rect.width - 10, y, { steps: 12 });
+  await page.mouse.up();
+}
+
 async function userSelect(page, selector = '#text') {
   return page.locator(selector).evaluate((node) => getComputedStyle(node).userSelect);
 }
@@ -182,6 +193,78 @@ test('auto-copy and copy notifications can be disabled independently', async ({ 
   await expect(app.locator('autocopy-toast')).toHaveCount(0);
 });
 
+for (const [name, selector, select, type] of [
+  ['text input', '#input', dragInput],
+  ['email input', '#input', dragInput, 'email'],
+  ['textarea', '#textarea', dragInput],
+  ['nested editable content', '#editor', drag],
+]) {
+  test(`excludes ${name} by default and applies editable copying changes live`, async ({ app, extensionWorker }) => {
+    if (type) await app.locator(selector).evaluate((element, type) => { element.type = type; }, type);
+    const text = await app.locator(selector).evaluate((element) => element.value ?? element.textContent);
+    await select(app, selector);
+    const selected = await app.locator(selector).evaluate((element) => typeof element.selectionStart === 'number'
+      ? element.value.slice(element.selectionStart, element.selectionEnd) : getSelection().toString());
+    expect(selected).toBe(text);
+    expect(await clipboard(app)).toBe('sentinel');
+    await expect(app.locator('autocopy-toast')).toHaveCount(0);
+
+    await app.keyboard.press('Control+c');
+    await expect.poll(() => clipboard(app)).toBe(text);
+    await app.evaluate(() => navigator.clipboard.writeText('sentinel'));
+    await settings(extensionWorker, { copyInEditable: true });
+    await app.keyboard.press('ArrowRight');
+    await select(app, selector);
+    await expect.poll(() => clipboard(app)).toBe(text);
+
+    await settings(extensionWorker, { copyInEditable: false });
+    await app.evaluate(() => navigator.clipboard.writeText('sentinel'));
+    await app.keyboard.press('ArrowRight');
+    await select(app, selector);
+    expect(await clipboard(app)).toBe('sentinel');
+    await drag(app, '#text');
+    await expect.poll(() => clipboard(app)).toBe('Drag this text into the clipboard.');
+  });
+}
+
+test('applies the editable option inside a shadow root', async ({ app, extensionWorker }) => {
+  await app.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'shadow-editor';
+    const root = host.attachShadow({ mode: 'open' });
+    const input = document.createElement('input');
+    input.value = 'Shadow input text';
+    input.style.cssText = 'width: 500px; padding: 8px; font: 18px/1.6 monospace';
+    root.append(input);
+    document.body.append(host);
+  });
+  await dragInput(app, '#shadow-editor input');
+  expect(await clipboard(app)).toBe('sentinel');
+  await settings(extensionWorker, { copyInEditable: true });
+  await app.keyboard.press('ArrowRight');
+  await dragInput(app, '#shadow-editor input');
+  await expect.poll(() => clipboard(app)).toBe('Shadow input text');
+});
+
+test('copies read-only text controls when editable copying is off', async ({ app }) => {
+  for (const selector of ['#input', '#textarea']) {
+    await app.locator(selector).evaluate((element) => { element.readOnly = true; });
+    const text = await app.locator(selector).inputValue();
+    await dragInput(app, selector);
+    await expect.poll(() => clipboard(app)).toBe(text);
+  }
+});
+
+test('applies the editable option to document editing mode', async ({ app, extensionWorker }) => {
+  await app.evaluate(() => { document.designMode = 'on'; });
+  await drag(app, '#text');
+  expect(await clipboard(app)).toBe('sentinel');
+  await settings(extensionWorker, { copyInEditable: true });
+  await app.keyboard.press('ArrowRight');
+  await drag(app, '#text');
+  await expect.poll(() => clipboard(app)).toBe('Drag this text into the clipboard.');
+});
+
 test('does not copy keyboard selections, clicks, right clicks or synthetic mouse drags', async ({ app }) => {
   await app.locator('#text').evaluate((node) => {
     const range = document.createRange();
@@ -220,6 +303,7 @@ test('keeps normal controls usable and never copies password selections', async 
   expect(await app.evaluate(() => eventCounts.input)).toBeGreaterThan(0);
   await app.locator('#editor').fill('Editor still works');
   await expect(app.locator('#editor')).toHaveText('Editor still works');
+  await settings(extensionWorker, { copyInEditable: true });
   const rect = await app.locator('#password').boundingBox();
   await app.mouse.move(rect.x + 10, rect.y + rect.height / 2);
   await app.mouse.down();
@@ -269,13 +353,15 @@ test('popup shows defaults and saves independent switches for the current site',
   await expect(popup.locator('#site-name')).toHaveText('autocopy.test');
   await expect(popup.locator('#unlock')).not.toBeChecked();
   await expect(popup.locator('#auto-copy')).toBeChecked();
+  await expect(popup.locator('#copy-in-editable')).not.toBeChecked();
   await popup.locator('#unlock').check();
   await expect(popup.locator('#site-state')).toHaveText('해제 중');
   await expect.poll(() => userSelect(app, '#inline')).toBe('text');
   await popup.locator('#auto-copy').uncheck();
+  await popup.locator('#copy-in-editable').check();
   await popup.locator('#show-toast').uncheck();
   await expect.poll(() => extensionWorker.evaluate(() => chrome.storage.local.get())).toEqual({
-    autoCopy: false, showToast: false, unlockedSites: ['autocopy.test'],
+    autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: ['autocopy.test'],
   });
   await popup.setViewportSize({ width: 360, height: 490 });
   await popup.screenshot({ path: testInfo.outputPath('popup.png'), fullPage: true });
@@ -283,6 +369,7 @@ test('popup shows defaults and saves independent switches for the current site',
   const reopened = await openPopup(extensionContext, extensionWorker, app);
   await expect(reopened.locator('#unlock')).toBeChecked();
   await expect(reopened.locator('#auto-copy')).not.toBeChecked();
+  await expect(reopened.locator('#copy-in-editable')).toBeChecked();
   await expect(reopened.locator('#show-toast')).not.toBeChecked();
 });
 
@@ -292,4 +379,5 @@ test('popup disables site unlocking on restricted Chrome pages', async ({ app, e
   await expect(popup.locator('#unlock')).toBeDisabled();
   await expect(popup.locator('#site-note')).toContainText('허용하지 않습니다');
   await expect(popup.locator('#auto-copy')).toBeEnabled();
+  await expect(popup.locator('#copy-in-editable')).toBeEnabled();
 });

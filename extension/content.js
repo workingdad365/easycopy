@@ -46,8 +46,19 @@
     return element;
   }
 
+  function isEditable(node) {
+    const element = node instanceof Element ? node : node?.parentElement;
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      return !element.readOnly && !element.disabled;
+    }
+    return Boolean(element?.isContentEditable);
+  }
+
   function readSelection() {
     const element = activeElement();
+    const selection = window.getSelection();
+    if (!settings.copyInEditable && (document.designMode === 'on'
+      || [element, selection?.anchorNode, selection?.focusNode].some(isEditable))) return '';
     if (element instanceof HTMLInputElement) {
       if (element.type === 'password' || /(?:current|new)-password/i.test(element.autocomplete)) return '';
     }
@@ -56,7 +67,7 @@
         return element.value.slice(element.selectionStart, element.selectionEnd);
       }
     }
-    return window.getSelection()?.toString() || '';
+    return selection?.toString() || '';
   }
 
   function isControl(event) {
@@ -175,7 +186,7 @@
   // 복사 이벤트를 먼저 읽고 페이지의 방지 핸들러를 차단함.
   for (const name of ['mousedown', 'mousemove', 'mouseup']) listen(window, name, onMouse);
   for (const name of blockedEvents) listen(window, name, unlock);
-  listen(window, 'blur', () => { drag = null; });
+  listen(window, 'blur', (event) => { if (event.target === window) drag = null; });
   listen(window, 'pagehide', () => { drag = null; });
   chrome.storage.onChanged.addListener(onSettingsChanged);
   chrome.storage.local.get(defaults).then(applySettings, () => { if (!alive()) destroy(); });

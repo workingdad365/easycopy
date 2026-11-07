@@ -2,6 +2,7 @@
 
 const { defaults, normalizeSettings, siteForUrl, supportsUrl } = globalThis.AutoCopy;
 const autoCopy = document.getElementById('auto-copy');
+const copyInEditable = document.getElementById('copy-in-editable');
 const unlock = document.getElementById('unlock');
 const showToast = document.getElementById('show-toast');
 const status = document.getElementById('status');
@@ -12,6 +13,7 @@ let settings = normalizeSettings();
 
 function render() {
   autoCopy.checked = settings.autoCopy;
+  copyInEditable.checked = settings.copyInEditable;
   showToast.checked = settings.showToast;
   unlock.checked = supported && settings.unlockedSites.includes(site);
   badge.textContent = unlock.checked ? '해제 중' : '기본';
@@ -36,7 +38,8 @@ async function save(event) {
       else sites.delete(site);
       change = { unlockedSites: [...sites] };
     } else {
-      change = { [control === autoCopy ? 'autoCopy' : 'showToast']: checked };
+      const key = control === autoCopy ? 'autoCopy' : control === copyInEditable ? 'copyInEditable' : 'showToast';
+      change = { [key]: checked };
     }
     await chrome.storage.local.set(change);
     settings = normalizeSettings({ ...latest, ...change });
@@ -67,10 +70,11 @@ async function initialize() {
     }
     render();
     autoCopy.disabled = false;
+    copyInEditable.disabled = false;
     showToast.disabled = false;
     unlock.disabled = !supported;
     report('설정은 이 브라우저에 저장됩니다.');
-    for (const control of [autoCopy, unlock, showToast]) control.addEventListener('change', save);
+    for (const control of [autoCopy, copyInEditable, unlock, showToast]) control.addEventListener('change', save);
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
       const raw = { ...settings };

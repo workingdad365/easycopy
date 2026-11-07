@@ -1,11 +1,12 @@
 (() => {
   'use strict';
 
-  const defaults = Object.freeze({ autoCopy: true, showToast: true, unlockedSites: [] });
+  const defaults = Object.freeze({ autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [] });
 
   function normalizeSettings(raw = {}) {
     return {
       autoCopy: typeof raw.autoCopy === 'boolean' ? raw.autoCopy : defaults.autoCopy,
+      copyInEditable: typeof raw.copyInEditable === 'boolean' ? raw.copyInEditable : defaults.copyInEditable,
       showToast: typeof raw.showToast === 'boolean' ? raw.showToast : defaults.showToast,
       unlockedSites: Array.isArray(raw.unlockedSites)
         ? [...new Set(raw.unlockedSites

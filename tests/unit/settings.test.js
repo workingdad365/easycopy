@@ -5,12 +5,15 @@ import '../../extension/shared.js';
 const { normalizeSettings, siteForUrl, supportsUrl, isDrag } = globalThis.AutoCopy;
 
 test('selection unlocking is opt-in and settings reject malformed stored values', () => {
-  assert.deepEqual(normalizeSettings(), { autoCopy: true, showToast: true, unlockedSites: [] });
-  assert.deepEqual(normalizeSettings({ autoCopy: 'false', showToast: 0, unlockedSites: 'all' }), {
-    autoCopy: true, showToast: true, unlockedSites: [],
+  assert.deepEqual(normalizeSettings(), { autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [] });
+  assert.deepEqual(normalizeSettings({ autoCopy: 'false', copyInEditable: 'true', showToast: 0, unlockedSites: 'all' }), {
+    autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [],
   });
-  assert.deepEqual(normalizeSettings({ autoCopy: false, showToast: false, unlockedSites: [' Example.COM. ', 'example.com', '', null, 4] }), {
-    autoCopy: false, showToast: false, unlockedSites: ['example.com'],
+  assert.deepEqual(normalizeSettings({ autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: [' Example.COM. ', 'example.com', '', null, 4] }), {
+    autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: ['example.com'],
+  });
+  assert.deepEqual(normalizeSettings({ autoCopy: false, showToast: false, unlockedSites: ['example.com'] }), {
+    autoCopy: false, copyInEditable: false, showToast: false, unlockedSites: ['example.com'],
   });
 });
 

@@ -41,7 +41,7 @@
     <textarea id="textarea" aria-label="Text area">Editable textarea text</textarea>
     <input id="password" aria-label="Password" type="password" value="secret-never-copy">
     <button id="button" onclick="eventCounts.button++">A working button</button>
-    <div id="editor" contenteditable="true">Editable content</div>
+    <div id="editor" contenteditable="true"><span>Editable <b>content</b></span></div>
     <div id="dynamic"></div>
     <script>
       document.getElementById('input').addEventListener('input', () => eventCounts.input++);
