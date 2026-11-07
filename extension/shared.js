@@ -1,11 +1,15 @@
 (() => {
   'use strict';
 
-  const defaults = Object.freeze({ autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [] });
+  const defaults = Object.freeze({
+    autoCopy: true, copyOnMultiClick: true, trimMultiClick: true, copyInEditable: false, showToast: true, unlockedSites: [],
+  });
 
   function normalizeSettings(raw = {}) {
     return {
       autoCopy: typeof raw.autoCopy === 'boolean' ? raw.autoCopy : defaults.autoCopy,
+      copyOnMultiClick: typeof raw.copyOnMultiClick === 'boolean' ? raw.copyOnMultiClick : defaults.copyOnMultiClick,
+      trimMultiClick: typeof raw.trimMultiClick === 'boolean' ? raw.trimMultiClick : defaults.trimMultiClick,
       copyInEditable: typeof raw.copyInEditable === 'boolean' ? raw.copyInEditable : defaults.copyInEditable,
       showToast: typeof raw.showToast === 'boolean' ? raw.showToast : defaults.showToast,
       unlockedSites: Array.isArray(raw.unlockedSites)
@@ -38,5 +42,10 @@
       && (start.moved || Math.hypot(end.clientX - start.x, end.clientY - start.y) >= 3));
   }
 
-  globalThis.AutoCopy = Object.freeze({ defaults, normalizeSettings, siteForUrl, supportsUrl, isDrag });
+  // 더블클릭(단어) / 트리플클릭(문단) 선택은 마우스 이동 없이 이루어짐.
+  function isMultiClick(start, end) {
+    return Boolean(start && end.button === 0 && end.detail >= 2);
+  }
+
+  globalThis.AutoCopy = Object.freeze({ defaults, normalizeSettings, siteForUrl, supportsUrl, isDrag, isMultiClick });
 })();

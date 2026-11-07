@@ -2,6 +2,8 @@
 
 const { defaults, normalizeSettings, siteForUrl, supportsUrl } = globalThis.AutoCopy;
 const autoCopy = document.getElementById('auto-copy');
+const copyOnMultiClick = document.getElementById('copy-on-multi-click');
+const trimMultiClick = document.getElementById('trim-multi-click');
 const copyInEditable = document.getElementById('copy-in-editable');
 const unlock = document.getElementById('unlock');
 const showToast = document.getElementById('show-toast');
@@ -10,9 +12,13 @@ const badge = document.getElementById('site-state');
 let site = '';
 let supported = false;
 let settings = normalizeSettings();
+let ready = false;
 
 function render() {
   autoCopy.checked = settings.autoCopy;
+  copyOnMultiClick.checked = settings.copyOnMultiClick;
+  trimMultiClick.checked = settings.trimMultiClick;
+  trimMultiClick.disabled = !ready || !settings.copyOnMultiClick;
   copyInEditable.checked = settings.copyInEditable;
   showToast.checked = settings.showToast;
   unlock.checked = supported && settings.unlockedSites.includes(site);
@@ -38,7 +44,10 @@ async function save(event) {
       else sites.delete(site);
       change = { unlockedSites: [...sites] };
     } else {
-      const key = control === autoCopy ? 'autoCopy' : control === copyInEditable ? 'copyInEditable' : 'showToast';
+      const key = control === autoCopy ? 'autoCopy'
+        : control === copyOnMultiClick ? 'copyOnMultiClick'
+          : control === trimMultiClick ? 'trimMultiClick'
+            : control === copyInEditable ? 'copyInEditable' : 'showToast';
       change = { [key]: checked };
     }
     await chrome.storage.local.set(change);
@@ -49,7 +58,7 @@ async function save(event) {
     render();
     report('저장하지 못했습니다. 팝업을 다시 열어 주세요.', true);
   } finally {
-    control.disabled = control === unlock && !supported;
+    control.disabled = control === unlock ? !supported : control === trimMultiClick && !settings.copyOnMultiClick;
   }
 }
 
@@ -68,13 +77,15 @@ async function initialize() {
     if (!supported) {
       document.getElementById('site-note').textContent = '이 페이지는 크롬에서 확장 프로그램 실행을 허용하지 않습니다.';
     }
+    ready = true;
     render();
     autoCopy.disabled = false;
+    copyOnMultiClick.disabled = false;
     copyInEditable.disabled = false;
     showToast.disabled = false;
     unlock.disabled = !supported;
     report('설정은 이 브라우저에 저장됩니다.');
-    for (const control of [autoCopy, copyInEditable, unlock, showToast]) control.addEventListener('change', save);
+    for (const control of [autoCopy, copyOnMultiClick, trimMultiClick, copyInEditable, unlock, showToast]) control.addEventListener('change', save);
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
       const raw = { ...settings };

@@ -183,6 +183,52 @@ test('leaves protection unchanged by default, enables it per site and restores i
   expect(await app.locator('#text').evaluate((node) => node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })))).toBe(false);
 });
 
+test('copies double and triple click selections and can disable click selection copying live', async ({ app, extensionWorker }) => {
+  const { x, y } = await textCoordinates(app, '#text');
+  const selection = () => app.evaluate(() => getSelection().toString());
+  await app.mouse.dblclick(x + 5, y);
+  expect((await selection()).trim()).toBe('Drag');
+  await expect.poll(() => clipboard(app)).toBe('Drag');
+  await expect(app.locator('autocopy-toast')).toHaveCount(1);
+
+  await app.mouse.click(x + 5, y, { clickCount: 3 });
+  const paragraph = await selection();
+  expect(paragraph).toMatch(/^Drag this text into the clipboard\.\s+$/);
+  await expect.poll(() => clipboard(app)).toBe('Drag this text into the clipboard.');
+  expect(await selection()).toBe(paragraph);
+
+  await settings(extensionWorker, { trimMultiClick: false });
+  await app.mouse.click(x + 5, y, { clickCount: 3 });
+  // Windows 클립보드가 줄바꿈을 CRLF로 변환하므로 비교 전에 정규화함.
+  await expect.poll(async () => (await clipboard(app)).replace(/\r\n/g, '\n')).toBe(paragraph);
+
+  await settings(extensionWorker, { copyOnMultiClick: false });
+  await app.evaluate(() => navigator.clipboard.writeText('sentinel'));
+  await app.mouse.dblclick(x + 5, y);
+  expect((await selection()).trim()).toBe('Drag');
+  expect(await clipboard(app)).toBe('sentinel');
+  // 선택된 텍스트 위에서 드래그하면 네이티브 드래그 앤 드롭이 시작되므로 선택을 해제함.
+  await app.evaluate(() => getSelection().removeAllRanges());
+  await drag(app, '#text');
+  await expect.poll(() => clipboard(app)).toBe('Drag this text into the clipboard.');
+
+  await settings(extensionWorker, { copyOnMultiClick: true, autoCopy: false });
+  await app.evaluate(() => navigator.clipboard.writeText('sentinel'));
+  await app.mouse.dblclick(x + 5, y);
+  expect(await clipboard(app)).toBe('sentinel');
+});
+
+test('applies the editable option to double click selections', async ({ app, extensionWorker }) => {
+  const rect = await app.locator('#input').boundingBox();
+  const selected = () => app.locator('#input').evaluate((element) => element.value.slice(element.selectionStart, element.selectionEnd));
+  await app.mouse.dblclick(rect.x + 15, rect.y + rect.height / 2);
+  expect((await selected()).trim()).toBe('Editable');
+  expect(await clipboard(app)).toBe('sentinel');
+  await settings(extensionWorker, { copyInEditable: true });
+  await app.mouse.dblclick(rect.x + 15, rect.y + rect.height / 2);
+  await expect.poll(() => clipboard(app)).toBe('Editable');
+});
+
 test('auto-copy and copy notifications can be disabled independently', async ({ app, extensionWorker }) => {
   await settings(extensionWorker, { autoCopy: false });
   await drag(app, '#text');
@@ -353,22 +399,35 @@ test('popup shows defaults and saves independent switches for the current site',
   await expect(popup.locator('#site-name')).toHaveText('autocopy.test');
   await expect(popup.locator('#unlock')).not.toBeChecked();
   await expect(popup.locator('#auto-copy')).toBeChecked();
+  await expect(popup.locator('#copy-on-multi-click')).toBeChecked();
+  await expect(popup.locator('#trim-multi-click')).toBeChecked();
   await expect(popup.locator('#copy-in-editable')).not.toBeChecked();
   await popup.locator('#unlock').check();
   await expect(popup.locator('#site-state')).toHaveText('해제 중');
   await expect.poll(() => userSelect(app, '#inline')).toBe('text');
   await popup.locator('#auto-copy').uncheck();
+  await popup.locator('#trim-multi-click').uncheck();
+  await popup.locator('#copy-on-multi-click').uncheck();
+  await expect(popup.locator('#trim-multi-click')).toBeDisabled();
   await popup.locator('#copy-in-editable').check();
   await popup.locator('#show-toast').uncheck();
   await expect.poll(() => extensionWorker.evaluate(() => chrome.storage.local.get())).toEqual({
-    autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: ['autocopy.test'],
+    autoCopy: false, copyOnMultiClick: false, trimMultiClick: false, copyInEditable: true, showToast: false, unlockedSites: ['autocopy.test'],
   });
+  // Chrome 확장 팝업의 최대 높이 600px 안에 모든 옵션이 들어가야 함.
+  expect(await popup.evaluate(() => document.body.getBoundingClientRect().height)).toBeLessThanOrEqual(600);
   await popup.setViewportSize({ width: 360, height: 490 });
   await popup.screenshot({ path: testInfo.outputPath('popup.png'), fullPage: true });
   await popup.close();
   const reopened = await openPopup(extensionContext, extensionWorker, app);
   await expect(reopened.locator('#unlock')).toBeChecked();
   await expect(reopened.locator('#auto-copy')).not.toBeChecked();
+  await expect(reopened.locator('#copy-on-multi-click')).not.toBeChecked();
+  await expect(reopened.locator('#trim-multi-click')).not.toBeChecked();
+  await expect(reopened.locator('#trim-multi-click')).toBeDisabled();
+  await reopened.locator('#copy-on-multi-click').check();
+  await expect(reopened.locator('#trim-multi-click')).toBeEnabled();
+  await expect(reopened.locator('#trim-multi-click')).not.toBeChecked();
   await expect(reopened.locator('#copy-in-editable')).toBeChecked();
   await expect(reopened.locator('#show-toast')).not.toBeChecked();
 });
@@ -379,5 +438,7 @@ test('popup disables site unlocking on restricted Chrome pages', async ({ app, e
   await expect(popup.locator('#unlock')).toBeDisabled();
   await expect(popup.locator('#site-note')).toContainText('허용하지 않습니다');
   await expect(popup.locator('#auto-copy')).toBeEnabled();
+  await expect(popup.locator('#copy-on-multi-click')).toBeEnabled();
+  await expect(popup.locator('#trim-multi-click')).toBeEnabled();
   await expect(popup.locator('#copy-in-editable')).toBeEnabled();
 });

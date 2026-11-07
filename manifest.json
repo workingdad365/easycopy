@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EasyCopy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "드래그 후 자동 복사와 사이트별 복사 방지 해제를 선택해서 사용합니다.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "clipboardWrite", "offscreen", "scripting"],

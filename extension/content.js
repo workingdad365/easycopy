@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { defaults, normalizeSettings, siteForUrl, isDrag } = globalThis.AutoCopy;
+  const { defaults, normalizeSettings, siteForUrl, isDrag, isMultiClick } = globalThis.AutoCopy;
   const ancestors = location.ancestorOrigins;
   const site = siteForUrl(ancestors?.length ? ancestors[ancestors.length - 1] : location.href)
     || siteForUrl(globalThis.origin);
@@ -163,8 +163,12 @@
     } else if (event.type === 'mouseup') {
       const completed = drag;
       drag = null;
-      if (!settings.autoCopy || !isDrag(completed, event)) return;
-      const text = readSelection();
+      if (!settings.autoCopy) return;
+      const clicked = !isDrag(completed, event);
+      if (clicked && !(settings.copyOnMultiClick && isMultiClick(completed, event))) return;
+      let text = readSelection();
+      // 더블클릭 / 트리플클릭 시 브라우저가 함께 선택한 끝 공백과 줄바꿈을 제거함.
+      if (clicked && settings.trimMultiClick) text = text.trimEnd();
       if (!text.trim()) return;
       const point = { x: event.clientX, y: event.clientY };
       copyQueue = copyQueue.catch(() => {}).then(() => copyText(text, point));

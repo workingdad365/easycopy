@@ -2,18 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import '../../extension/shared.js';
 
-const { normalizeSettings, siteForUrl, supportsUrl, isDrag } = globalThis.AutoCopy;
+const { normalizeSettings, siteForUrl, supportsUrl, isDrag, isMultiClick } = globalThis.AutoCopy;
 
 test('selection unlocking is opt-in and settings reject malformed stored values', () => {
-  assert.deepEqual(normalizeSettings(), { autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [] });
-  assert.deepEqual(normalizeSettings({ autoCopy: 'false', copyInEditable: 'true', showToast: 0, unlockedSites: 'all' }), {
-    autoCopy: true, copyInEditable: false, showToast: true, unlockedSites: [],
+  assert.deepEqual(normalizeSettings(), {
+    autoCopy: true, copyOnMultiClick: true, trimMultiClick: true, copyInEditable: false, showToast: true, unlockedSites: [],
   });
-  assert.deepEqual(normalizeSettings({ autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: [' Example.COM. ', 'example.com', '', null, 4] }), {
-    autoCopy: false, copyInEditable: true, showToast: false, unlockedSites: ['example.com'],
+  assert.deepEqual(normalizeSettings({ autoCopy: 'false', copyOnMultiClick: 0, trimMultiClick: 'false', copyInEditable: 'true', showToast: 0, unlockedSites: 'all' }), {
+    autoCopy: true, copyOnMultiClick: true, trimMultiClick: true, copyInEditable: false, showToast: true, unlockedSites: [],
+  });
+  assert.deepEqual(normalizeSettings({ autoCopy: false, copyOnMultiClick: false, trimMultiClick: false, copyInEditable: true, showToast: false, unlockedSites: [' Example.COM. ', 'example.com', '', null, 4] }), {
+    autoCopy: false, copyOnMultiClick: false, trimMultiClick: false, copyInEditable: true, showToast: false, unlockedSites: ['example.com'],
   });
   assert.deepEqual(normalizeSettings({ autoCopy: false, showToast: false, unlockedSites: ['example.com'] }), {
-    autoCopy: false, copyInEditable: false, showToast: false, unlockedSites: ['example.com'],
+    autoCopy: false, copyOnMultiClick: true, trimMultiClick: true, copyInEditable: false, showToast: false, unlockedSites: ['example.com'],
   });
 });
 
@@ -37,4 +39,13 @@ test('only a completed left-button drag qualifies for automatic copying', () => 
   assert.equal(isDrag(start, { button: 2, clientX: 100, clientY: 10 }), false);
   assert.equal(isDrag(start, { button: 0, clientX: 100, clientY: 10 }), true);
   assert.equal(isDrag({ ...start, moved: true }, { button: 0, clientX: 10, clientY: 10 }), true);
+});
+
+test('only left-button double or triple clicks qualify as click selections', () => {
+  const start = { x: 10, y: 10, moved: false };
+  assert.equal(isMultiClick(null, { button: 0, detail: 2 }), false);
+  assert.equal(isMultiClick(start, { button: 0, detail: 1 }), false);
+  assert.equal(isMultiClick(start, { button: 2, detail: 2 }), false);
+  assert.equal(isMultiClick(start, { button: 0, detail: 2 }), true);
+  assert.equal(isMultiClick(start, { button: 0, detail: 3 }), true);
 });

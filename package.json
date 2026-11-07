@@ -1,6 +1,6 @@
 {
   "name": "easycopy-extension",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "Optional drag-to-copy and per-site selection unlocking for Chrome.",
