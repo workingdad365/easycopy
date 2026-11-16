@@ -151,16 +151,27 @@
     else showToast('복사하지 못했습니다. 다시 선택해 주세요.', point, true);
   }
 
+  function isDisabledTextPointer(event) {
+    if (!['pointerdown', 'pointerup'].includes(event.type) || event.pointerType !== 'mouse') return false;
+    return event.composedPath().some((node) => {
+      if (node instanceof HTMLTextAreaElement) return node.disabled;
+      return node instanceof HTMLInputElement && node.disabled
+        && ['text', 'search', 'url', 'tel', 'email'].includes(node.type)
+        && !/(?:current|new)-password/i.test(node.autocomplete);
+    });
+  }
+
   function onMouse(event) {
     if (!event.isTrusted || destroyed) return;
     if (!alive()) { destroy(); return; }
-    if (event.type === 'mousedown') {
+    const disabledTextPointer = isDisabledTextPointer(event);
+    if (event.type === 'mousedown' || (event.type === 'pointerdown' && disabledTextPointer)) {
       drag = settings.autoCopy && event.button === 0
         ? { x: event.clientX, y: event.clientY, moved: false } : null;
     } else if (event.type === 'mousemove' && drag) {
       if (!(event.buttons & 1)) { drag = null; return; }
       if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= 3) drag.moved = true;
-    } else if (event.type === 'mouseup') {
+    } else if (event.type === 'mouseup' || (event.type === 'pointerup' && disabledTextPointer)) {
       const completed = drag;
       drag = null;
       if (!settings.autoCopy) return;
@@ -188,7 +199,8 @@
   }
 
   // 복사 이벤트를 먼저 읽고 페이지의 방지 핸들러를 차단함.
-  for (const name of ['mousedown', 'mousemove', 'mouseup']) listen(window, name, onMouse);
+  // 비활성화된 텍스트 컨트롤은 mousedown / mouseup 대신 pointerdown / pointerup을 사용함.
+  for (const name of ['mousedown', 'mousemove', 'mouseup', 'pointerdown', 'pointerup']) listen(window, name, onMouse);
   for (const name of blockedEvents) listen(window, name, unlock);
   listen(window, 'blur', (event) => { if (event.target === window) drag = null; });
   listen(window, 'pagehide', () => { drag = null; });

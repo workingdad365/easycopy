@@ -301,6 +301,28 @@ test('copies read-only text controls when editable copying is off', async ({ app
   }
 });
 
+test('copies disabled text controls without enabling them and still excludes passwords', async ({ app, extensionWorker }) => {
+  await settings(extensionWorker, { unlockedSites: ['autocopy.test'] });
+  for (const selector of ['#disabled-input', '#disabled-textarea']) {
+    const control = app.locator(selector);
+    const text = await control.inputValue();
+    await dragInput(app, selector);
+    await expect.poll(() => clipboard(app)).toBe(text);
+    await expect(control).toBeDisabled();
+    expect(await control.evaluate((element) => element.readOnly)).toBe(false);
+    await app.evaluate(() => navigator.clipboard.writeText('sentinel'));
+  }
+
+  await dragInput(app, '#disabled-password');
+  expect(await clipboard(app)).toBe('sentinel');
+
+  await settings(extensionWorker, { autoCopy: false });
+  await dragInput(app, '#disabled-input');
+  expect(await clipboard(app)).toBe('sentinel');
+  await app.keyboard.press('Control+c');
+  await expect.poll(() => clipboard(app)).toBe('Mentiras y gordas');
+});
+
 test('applies the editable option to document editing mode', async ({ app, extensionWorker }) => {
   await app.evaluate(() => { document.designMode = 'on'; });
   await drag(app, '#text');
