@@ -8,6 +8,15 @@ const UNLOCK_CSS = `
     user-select: text !important;
     -webkit-touch-callout: default !important;
   }
+  input:disabled:not([type]),
+  input:disabled[type="text" i],
+  input:disabled[type="search" i],
+  input:disabled[type="url" i],
+  input:disabled[type="tel" i],
+  input:disabled[type="email" i],
+  textarea:disabled {
+    pointer-events: auto !important;
+  }
 `;
 
 let creatingOffscreen = null;

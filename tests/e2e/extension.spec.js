@@ -306,6 +306,7 @@ test('copies disabled text controls without enabling them and still excludes pas
   for (const selector of ['#disabled-input', '#disabled-textarea']) {
     const control = app.locator(selector);
     const text = await control.inputValue();
+    await expect.poll(() => control.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('auto');
     await dragInput(app, selector);
     await expect.poll(() => clipboard(app)).toBe(text);
     await expect(control).toBeDisabled();
@@ -321,6 +322,9 @@ test('copies disabled text controls without enabling them and still excludes pas
   expect(await clipboard(app)).toBe('sentinel');
   await app.keyboard.press('Control+c');
   await expect.poll(() => clipboard(app)).toBe('Mentiras y gordas');
+
+  await settings(extensionWorker, { unlockedSites: [] });
+  await expect.poll(() => app.locator('#disabled-input').evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
 });
 
 test('applies the editable option to document editing mode', async ({ app, extensionWorker }) => {
